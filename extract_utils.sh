@@ -754,7 +754,7 @@ function fix_xml() {
     grep -a '^<?xml version' "$XML" > "$TEMP_XML"
     grep -av '^<?xml version' "$XML" >> "$TEMP_XML"
 
-    mv "$TEMP_XML" "$XML"
+    mv -f "$TEMP_XML" "$XML"
 }
 
 #
