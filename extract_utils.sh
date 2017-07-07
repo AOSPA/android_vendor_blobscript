@@ -655,7 +655,6 @@ function oat2dex() {
     local TARGET="$1"
     local OEM_TARGET="$2"
     local SRC="$3"
-    local TARGET=
     local OAT=
 
     if [ -z "$BAKSMALIJAR" ] || [ -z "$SMALIJAR" ]; then
