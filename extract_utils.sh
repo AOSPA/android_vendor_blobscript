@@ -876,7 +876,6 @@ function extract() {
                 cp "$SRC/$FILE" "$DEST"
             else
                 printf '    !! file not found in source\n'
-                exit 1
             fi
         fi
 
