@@ -744,6 +744,29 @@ function init_adb_connection() {
 }
 
 #
+# download_from_remote:
+#
+# If possible, try to download the zip file from OEM servers using
+# the file's name, e.g. $REMOTE/$file_name.zip.
+#
+function download_from_remote() {
+    DLDIR="$ROOT"/"$OUTDIR"
+    DLINK="$REMOTE"/"$SRC"
+    DCLIENT=$(which aria2c)
+    if wget --spider $DLINK &> /dev/null; then
+        if [ $DCLIENT ]; then
+            echo -e "Downloading with $DCLIENT, please wait..."
+            aria2c -x 4 $DLINK -d $DLDIR --async-dns=false
+        else
+            echo -e "Please, install aria2 download manager."
+            exit
+        fi;
+    else
+        echo -e "The mirror for $DLINK is offline! Check your connection."
+    fi;
+}
+
+#
 # fix_xml:
 #
 # $1: xml file to fix
@@ -786,6 +809,11 @@ function extract() {
         init_adb_connection
     fi
 
+    if [ -f "$SRC.aria2" ]; then
+        echo "A partial aria2 download was found locally, resuming..."
+        download_from_remote
+    fi
+
     if [ -f "$SRC" ] && [ "${SRC##*.}" == "zip" ]; then
         DUMPDIR="$ROOT"/system_dump
 
@@ -819,6 +847,9 @@ function extract() {
         fi
 
         SRC="$DUMPDIR"
+    else
+        echo "The source file was not found, attempting to download from remote..."
+        download_from_remote
     fi
 
     if [ "$VENDOR_STATE" -eq "0" ]; then
