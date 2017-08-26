@@ -48,7 +48,7 @@ trap cleanup EXIT INT TERM ERR
 # $2: vendor name
 # $3: root directory
 # $4: is common device - optional, default to false
-# $5: cleanup - optional, default to true
+# $5: cleanup - optional, default to false
 # $6: custom vendor makefile name - optional, default to false
 #
 # Must be called before any other functions can be used. This
@@ -93,12 +93,12 @@ function setup_vendor() {
         COMMON=0
     fi
 
-    if [ "$5" == "false" ] || [ "$5" == "0" ]; then
-        VENDOR_STATE=1
-        VENDOR_RADIO_STATE=1
-    else
+    if [ "$5" == "true" ] || [ "$5" == "1" ]; then
         VENDOR_STATE=0
         VENDOR_RADIO_STATE=0
+    else
+        VENDOR_STATE=1
+        VENDOR_RADIO_STATE=1
     fi
 }
 
@@ -582,7 +582,7 @@ function parse_file_list() {
         # if line starts with a dash, it needs to be packaged
         if [[ "$SPEC" =~ ^- ]]; then
             PRODUCT_PACKAGES_LIST+=("${SPEC#-}")
-            PRODUCT_PACKAGES_HASHES+=("$HASH")
+            PRODUCT_PACKAGES_HASHES+=("${HASH#-}")
         else
             PRODUCT_COPY_FILES_LIST+=("$SPEC")
             PRODUCT_COPY_FILES_HASHES+=("$HASH")
@@ -834,13 +834,19 @@ function extract() {
         SRC="$DUMPDIR"
     fi
 
+    # Copy the old vendor files under a temporary folder
+    # for later checking the hashes.
+    rm -rf "${OUTPUT_TMP:?}"
+    mkdir -p "${OUTPUT_TMP:?}"
+    if [ -d "$OUTPUT_ROOT" ]; then
+        cp -r "${OUTPUT_ROOT:?}/"* "${OUTPUT_TMP:?}/"
+    fi
+
+    # Check if the vendor folder should be completely removed,
+    # this is useful for cleaning the old blobs that may exist.
     if [ "$VENDOR_STATE" -eq "0" ]; then
         echo "Cleaning output directory ($OUTPUT_ROOT).."
-        rm -rf "${OUTPUT_TMP:?}"
-        mkdir -p "${OUTPUT_TMP:?}"
-        if [ -d "$OUTPUT_ROOT" ]; then
-            mv "${OUTPUT_ROOT:?}/"* "${OUTPUT_TMP:?}/"
-        fi
+        rm -rf "${OUTPUT_ROOT:?}"
         VENDOR_STATE=1
     fi
 
@@ -912,23 +918,20 @@ function extract() {
             fi
         fi
 
+
         # Check pinned files
         local HASH="${HASHLIST[$i-1]}"
-        if [ "$DISABLE_PINNING" != "1" ] && [ ! -z "$HASH" ] && [ "$HASH" != "x" ]; then
+        if [ ! -z "$HASH" ] && [ "$HASH" != "x" ]; then
             local KEEP=""
             local TMP="$TMP_DIR/$FROM"
-            if [ -f "$TMP" ]; then
-                if [ ! -f "$DEST" ]; then
-                    KEEP="1"
+            if [ -f "$DEST" ]; then
+                if [ "$(uname)" == "Darwin" ]; then
+                    local DEST_HASH=$(shasum "$DEST" | awk '{print $1}' )
                 else
-                    if [ "$(uname)" == "Darwin" ]; then
-                        local DEST_HASH=$(shasum "$DEST" | awk '{print $1}' )
-                    else
-                        local DEST_HASH=$(sha1sum "$DEST" | awk '{print $1}' )
-                    fi
-                    if [ "$DEST_HASH" != "$HASH" ]; then
-                        KEEP="1"
-                    fi
+                    local DEST_HASH=$(sha1sum "$DEST" | awk '{print $1}' )
+                fi
+                if [ "$DEST_HASH" != "$HASH" ]; then
+                    KEEP="1"
                 fi
                 if [ "$KEEP" = "1" ]; then
                     if [ "$(uname)" == "Darwin" ]; then
