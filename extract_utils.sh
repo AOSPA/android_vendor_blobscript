@@ -47,7 +47,7 @@ trap cleanup 0
 # $2: vendor name
 # $3: root directory
 # $4: is common device - optional, default to false
-# $5: cleanup - optional, default to false
+# $5: cleanup - optional, default to true
 # $6: custom vendor makefile name - optional, default to false
 #
 # Must be called before any other functions can be used. This
@@ -92,12 +92,12 @@ function setup_vendor() {
         COMMON=0
     fi
 
-    if [ "$5" == "true" ] || [ "$5" == "1" ]; then
-        VENDOR_STATE=0
-        VENDOR_RADIO_STATE=0
-    else
+    if [ "$5" == "false" ] || [ "$5" == "0" ]; then
         VENDOR_STATE=1
         VENDOR_RADIO_STATE=1
+    else
+        VENDOR_STATE=0
+        VENDOR_RADIO_STATE=0
     fi
 }
 
@@ -669,7 +669,7 @@ function parse_file_list() {
         # if line starts with a dash, it needs to be packaged
         if [[ "$SPEC" =~ ^- ]]; then
             PRODUCT_PACKAGES_LIST+=("${SPEC#-}")
-            PRODUCT_PACKAGES_HASHES+=("${HASH#-}")
+            PRODUCT_PACKAGES_HASHES+=("$HASH")
         else
             PRODUCT_COPY_FILES_LIST+=("$SPEC")
             PRODUCT_COPY_FILES_HASHES+=("$HASH")
@@ -989,19 +989,13 @@ function extract() {
         SRC="$DUMPDIR"
     fi
 
-    # Copy the old vendor files to the temporary folder
-    # for later checking the hashes.
-    rm -rf "${OUTPUT_TMP:?}"
-    mkdir -p "${OUTPUT_TMP:?}"
-    if [ -d "$OUTPUT_ROOT" ]; then
-        cp -r "${OUTPUT_ROOT:?}/"* "${OUTPUT_TMP:?}/"
-    fi
-
-    # Check if the vendor folder should be completely removed,
-    # this is useful for cleaning the old blobs that may exist.
     if [ "$VENDOR_STATE" -eq "0" ]; then
         echo "Cleaning output directory ($OUTPUT_ROOT).."
-        rm -rf "${OUTPUT_ROOT:?}"
+        rm -rf "${OUTPUT_TMP:?}"
+        mkdir -p "${OUTPUT_TMP:?}"
+        if [ -d "$OUTPUT_ROOT" ]; then
+            mv "${OUTPUT_ROOT:?}/"* "${OUTPUT_TMP:?}/"
+        fi
         VENDOR_STATE=1
     fi
 
