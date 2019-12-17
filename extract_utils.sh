@@ -299,6 +299,10 @@ function write_product_copy_files() {
             local OUTTARGET=$(truncate_file $TARGET)
             printf '    %s/proprietary/%s:$(TARGET_COPY_OUT_VENDOR)/%s%s\n' \
                 "$OUTDIR" "$TARGET" "$OUTTARGET" "$LINEEND" >> "$PRODUCTMK"
+        elif prefix_match_file "vendor_overlay/" $TARGET ; then
+            local OUTTARGET=$(truncate_file $TARGET)
+            printf '    %s/proprietary/%s:$(TARGET_COPY_OUT_VENDOR_OVERLAY)/%s%s\n' \
+                "$OUTDIR" "$TARGET" "$OUTTARGET" "$LINEEND" >> "$PRODUCTMK"
         elif prefix_match_file "system/vendor/" $TARGET ; then
             local OUTTARGET=$(truncate_file $TARGET)
             printf '    %s/proprietary/%s:$(TARGET_COPY_OUT_VENDOR)/%s%s\n' \
@@ -319,7 +323,7 @@ function write_product_copy_files() {
 # write_packages:
 #
 # $1: The LOCAL_MODULE_CLASS for the given module list
-# $2: /system, /odm, /product, or /vendor partition
+# $2: /system, /odm, /product, /vendor, or /vendor_overlay partition
 # $3: type-specific extra flags
 # $4: Name of the array holding the target list
 #
@@ -361,6 +365,8 @@ function write_packages() {
             SRC+="/system"
         elif [ "$PARTITION" = "vendor" ]; then
             SRC+="/vendor"
+        elif [ "$PARTITION" = "vendor_overlay" ]; then
+            SRC+="/vendor_overlay"
         elif [ "$PARTITION" = "product" ]; then
             SRC+="/product"
         elif [ "$PARTITION" = "odm" ]; then
@@ -444,6 +450,8 @@ function write_packages() {
         fi
         if [ "$PARTITION" = "vendor" ]; then
             printf 'LOCAL_VENDOR_MODULE := true\n'
+        elif [ "$PARTITION" = "vendor_overlay" ]; then
+            printf 'LOCAL_VENDOR_OVERLAY_MODULE := true\n'
         elif [ "$PARTITION" = "product" ]; then
             printf 'LOCAL_PRODUCT_MODULE := true\n'
         elif [ "$PARTITION" = "odm" ]; then
@@ -518,6 +526,22 @@ function write_product_packages() {
     fi
     if [ "${#V_LIB64[@]}" -gt "0" ]; then
         write_packages "SHARED_LIBRARIES" "vendor" "64" "V_LIB64" >> "$ANDROIDMK"
+    fi
+
+    local T_V_LIB32=( $(prefix_match "vendor_overlay/lib/") )
+    local T_V_LIB64=( $(prefix_match "vendor_overlay/lib64/") )
+    local V_MULTILIBS=( $(comm -12 --nocheck-order <(printf '%s\n' "${T_V_LIB32[@]}") <(printf '%s\n' "${T_V_LIB64[@]}")) )
+    local V_LIB32=( $(comm -23 --nocheck-order <(printf '%s\n' "${T_V_LIB32[@]}") <(printf '%s\n' "${V_MULTILIBS[@]}")) )
+    local V_LIB64=( $(comm -23 --nocheck-order <(printf '%s\n' "${T_V_LIB64[@]}") <(printf '%s\n' "${V_MULTILIBS[@]}")) )
+
+    if [ "${#V_MULTILIBS[@]}" -gt "0" ]; then
+        write_packages "SHARED_LIBRARIES" "vendor_overlay" "both" "V_MULTILIBS" >> "$ANDROIDMK"
+    fi
+    if [ "${#V_LIB32[@]}" -gt "0" ]; then
+        write_packages "SHARED_LIBRARIES" "vendor_overlay" "32" "V_LIB32" >> "$ANDROIDMK"
+    fi
+    if [ "${#V_LIB64[@]}" -gt "0" ]; then
+        write_packages "SHARED_LIBRARIES" "vendor_overlay" "64" "V_LIB64" >> "$ANDROIDMK"
     fi
 
     local T_P_LIB32=( $(prefix_match "product/lib/") )
